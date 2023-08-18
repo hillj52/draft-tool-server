@@ -1,16 +1,12 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { PlayerCsvService } from './player-csv.service';
-import { Player, PlayerSchema } from './player.schema';
 import { PlayersController } from './players.controller';
 import { PlayersService } from './players.service';
+import { PrismaModule } from 'src/prisma.module';
 
 @Module({
-  imports: [
-    MongooseModule.forFeature([{ name: Player.name, schema: PlayerSchema }]),
-  ],
+  imports: [PrismaModule],
   exports: [PlayersService],
   controllers: [PlayersController],
-  providers: [PlayersService, PlayerCsvService],
+  providers: [PlayersService],
 })
 export class PlayersModule {}

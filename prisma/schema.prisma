@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  username        String    @unique
+  passwordHash    String
+}
+
+model Player {
+  id              String    @id @default(uuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  drafted         Boolean   @default(false)
+  name            String
+  team            String
+  position        String
+  byeWeek         Int       @default(-1)
+  price           Int?
+  projectedPoints Int       @default(0)
+  passingStats    PassingStats?  
+  rushingStats    RushingStats?
+  recievingStats  RecievingStats?
+  draftRecord     Draft?
+  value           Int       @default(0)
+}
+
+model PassingStats {
+  id              Int     @default(autoincrement()) @id
+  attempts        Float   @default(0)
+  completions     Float   @default(0)
+  yards           Float   @default(0)
+  touchdowns      Float   @default(0)
+  interceptions   Float   @default(0)
+  player          Player  @relation(fields: [playerId], references: [id])
+  playerId        String  @unique
+}
+
+model RushingStats {
+  id              String  @id @default(uuid())
+  attempts        Float   @default(0)
+  yards           Float   @default(0)
+  touchdowns      Float   @default(0)
+  fumblesLost     Float   @default(0)
+  player          Player  @relation(fields: [playerId], references: [id])
+  playerId        String  @unique
+}
+
+model RecievingStats {
+  id              String  @id @default(uuid())
+  receptions      Float   @default(0)
+  yards           Float   @default(0)
+  touchdowns      Float   @default(0)
+  player          Player  @relation(fields: [playerId], references: [id])
+  playerId        String  @unique
+}
+
+model ByeWeek {
+  id              String    @id @default(uuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  team            String
+  byeWeek         Int       @default(-1)
+}
+
+model Draft {
+  id              String    @id @default(uuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  player          Player    @relation(fields: [playerId], references: [id])
+  playerId        String    @unique
+  team            Team      @relation(fields: [teamId], references: [id])
+  teamId          String    
+  rosterPosition  String
+  price           Int
+}
+
+model Team {
+  id              String    @id @default(uuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  name            String
+  owner           String
+  drafted         Draft[]
+}

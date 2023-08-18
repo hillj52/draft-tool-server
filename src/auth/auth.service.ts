@@ -17,8 +17,8 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async signup(email: string, password: string) {
-    const existingUser = await this.usersService.find(email);
+  async signup(username: string, password: string) {
+    const existingUser = await this.usersService.find(username);
     if (existingUser) {
       throw new BadRequestException('Email already in use');
     }
@@ -27,7 +27,7 @@ export class AuthService {
     const hash = await this.hashPassword(password, salt);
     const result = `${hash}.${salt}`;
 
-    const user = await this.usersService.create(email, result);
+    const user = await this.usersService.create(username, result);
     return user;
   }
 
@@ -37,7 +37,7 @@ export class AuthService {
       throw new NotFoundException('Email not in use');
     }
 
-    const [storedHash, salt] = user.password.split('.');
+    const [storedHash, salt] = user.passwordHash.split('.');
     const hash = await this.hashPassword(password, salt);
 
     if (storedHash !== hash) {

@@ -1,25 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User, UserDocument } from './user.schema';
+import { PrismaService } from 'src/prisma.service';
+import type { User } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private model: Model<UserDocument>) {}
+  constructor(private prisma: PrismaService) {}
 
-  create(email: string, password: string): Promise<User> {
-    const newUser = new this.model({ email, password });
-    return newUser.save();
+  create(username: string, passwordHash: string): Promise<User> {
+    return this.prisma.user.create({ data: { username, passwordHash } });
   }
 
   findOne(id: string): Promise<User> {
-    if (!id) {
-      return null;
-    }
-    return this.model.findById(id).exec();
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
-  find(email: string): Promise<User> {
-    return this.model.findOne({ email }).exec();
+  find(username: string): Promise<User> {
+    return this.prisma.user.findUnique({ where: { username } });
   }
 }

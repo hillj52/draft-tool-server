@@ -1,29 +1,83 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Team, TeamDocument } from './team.schema';
+import { PrismaService } from 'src/prisma.service';
+import { Player, Prisma } from '@prisma/client';
+import { RosterPosition } from 'src/players/enum/roster-position.enum';
+
+export interface Roster {
+  qb?: Player;
+  wr1?: Player;
+  wr2?: Player;
+  rb1?: Player;
+  rb2?: Player;
+  te?: Player;
+  flex?: Player;
+  op?: Player;
+  k?: Player;
+  dst?: Player;
+  bench: Player[];
+}
+
+export const teamWithDraftedPlayers =
+  Prisma.validator<Prisma.TeamDefaultArgs>()({
+    include: { drafted: { include: { player: true } } },
+  });
+
+export type TeamWithDraftedPlayers = Prisma.TeamGetPayload<
+  typeof teamWithDraftedPlayers
+>;
 
 @Injectable()
 export class TeamsService {
-  constructor(@InjectModel(Team.name) private model: Model<TeamDocument>) {}
+  constructor(private prisma: PrismaService) {}
 
   createTeam(owner: string, name: string) {
-    const team = new this.model({ owner, name });
-    return team.save();
+    return this.prisma.team.create({ data: { owner, name } });
   }
 
-  getTeams() {
-    return this.model.find({}).exec();
+  async getTeams() {
+    const teams = await this.prisma.team.findMany({
+      include: { drafted: { include: { player: true } } },
+    });
+    return teams.map((team) => ({
+      ...team,
+      ...this.createRoster(team),
+    }));
   }
 
-  getTeam(id: string) {
+  async getTeam(id: string) {
     if (!id) {
       return null;
     }
-    return this.model.findById(id).exec();
+
+    const team = await this.prisma.team.findFirst({
+      where: { id },
+      include: { drafted: { include: { player: true } } },
+    });
+    return {
+      ...team,
+      ...this.createRoster(team),
+    };
   }
 
-  updateTeam(id: string, attrs: Partial<TeamDocument>) {
-    return this.model.findByIdAndUpdate(id, { ...attrs }).exec();
+  updateTeam() {
+    return 'Not Yet Implemented!';
+  }
+
+  private createRoster(team: TeamWithDraftedPlayers) {
+    const roster = {
+      ...team.drafted.reduce(
+        (acc, record) => {
+          if (record.rosterPosition === RosterPosition.BENCH) {
+            acc.bench.push(record.player);
+          } else {
+            acc[record.rosterPosition as RosterPosition] = record.player;
+          }
+          return acc;
+        },
+        { bench: [] },
+      ),
+    };
+    const money = team.drafted.reduce((acc, { price }) => acc - price, 300);
+    return { ...roster, money };
   }
 }

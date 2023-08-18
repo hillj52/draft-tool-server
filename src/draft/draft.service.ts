@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import mongoose from 'mongoose';
 import { RosterPosition } from 'src/players/enum/roster-position.enum';
 import { PlayersService } from 'src/players/players.service';
+import { PrismaService } from 'src/prisma.service';
 import { TeamsService } from 'src/teams/teams.service';
 
 @Injectable()
@@ -9,6 +9,7 @@ export class DraftService {
   constructor(
     private teamsService: TeamsService,
     private playersService: PlayersService,
+    private prisma: PrismaService,
   ) {}
 
   async draftPlayer(
@@ -23,22 +24,34 @@ export class DraftService {
       throw new NotFoundException();
     }
 
-    player.set({ drafted: true, price });
-    await player.save();
+    // Need logic to draft player with prisma relations
+    const result = this.prisma.$transaction(async (tx) => {
+      const draftRecord = await tx.draft.create({
+        data: {
+          price,
+          rosterPosition: position,
+          player: {
+            connect: {
+              id: playerId,
+            },
+          },
+          team: {
+            connect: {
+              id: teamId,
+            },
+          },
+        },
+      });
 
-    if (position === RosterPosition.BENCH) {
-      if (team.bench) {
-        team.set({ bench: [...team.bench, player] });
-      } else {
-        team.set({ bench: [player] });
-      }
-    } else {
-      team.set({ [position]: player });
-    }
-    await team.save();
-    await team.populate('qb rb1 rb2 wr1 wr2 te flex op k dst bench');
+      const player = await tx.player.update({
+        where: { id: playerId },
+        data: { drafted: true, price },
+      });
 
-    return { team, player };
+      return { draftRecord, player };
+    });
+
+    return result;
   }
 
   async undraftPlayer(
@@ -52,23 +65,24 @@ export class DraftService {
       throw new NotFoundException();
     }
 
-    player.set({ drafted: false, price: undefined });
-    await player.save();
+    // Need logic to undraft player with prisma relations
+    const result = this.prisma.$transaction(async (tx) => {
+      const draftRecord = await tx.draft.findUniqueOrThrow({
+        where: { playerId, teamId, rosterPosition: position },
+      });
 
-    if (position === RosterPosition.BENCH) {
-      console.log(player.id);
-      const bench = team.bench?.filter(
-        ({ _id }) => _id.toString() !== player.id,
-      );
-      console.log(bench);
-      team.set({ bench });
-    } else {
-      team.set({ [position]: undefined });
-    }
+      await tx.draft.delete({
+        where: { teamId, playerId, rosterPosition: position },
+      });
 
-    await team.save();
-    await team.populate('qb rb1 rb2 wr1 wr2 te flex op k dst bench');
+      const player = await tx.player.update({
+        where: { id: playerId },
+        data: { drafted: false, price: 0 },
+      });
 
-    return { team, player };
+      return { draftRecord, player };
+    });
+
+    return result;
   }
 }

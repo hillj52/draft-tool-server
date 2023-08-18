@@ -12,8 +12,8 @@ export class AuthController {
 
   @Post('/signup')
   @Serialize(UserDto)
-  async signup(@Body() { email, password }: CreateUserDto) {
-    const user = await this.authService.signup(email, password);
+  async signup(@Body() { username, password }: CreateUserDto) {
+    const user = await this.authService.signup(username, password);
     return this.authService.login(user);
   }
 
@@ -21,6 +21,7 @@ export class AuthController {
   @Serialize(UserDto)
   @UseGuards(LocalAuthGuard)
   async signin(@User() user: UserDto) {
+    console.log(user);
     return this.authService.login(user);
   }
 }
